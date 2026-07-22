@@ -347,4 +347,195 @@ class Database extends EventEmitter {
    * Clear collection
    */
   async clear(collection) {
-    this.
+    this.ensureConnected();
+    this.emit('clear', { collection });
+    
+    const manager = await this.getCollectionManager(collection);
+    await manager.clear();
+    
+    this.emit('save', { collection });
+  }
+
+  /**
+   * Find entries matching callback
+   */
+  async find(collection, callback) {
+    this.ensureConnected();
+    const manager = await this.getCollectionManager(collection);
+    return manager.find(callback);
+  }
+
+  /**
+   * Filter entries
+   */
+  async filter(collection, callback) {
+    this.ensureConnected();
+    const manager = await this.getCollectionManager(collection);
+    return manager.filter(callback);
+  }
+
+  /**
+   * Get random entry
+   */
+  async random(collection) {
+    this.ensureConnected();
+    const manager = await this.getCollectionManager(collection);
+    return manager.random();
+  }
+
+  /**
+   * Get random key
+   */
+  async randomKey(collection) {
+    this.ensureConnected();
+    const manager = await this.getCollectionManager(collection);
+    return manager.randomKey();
+  }
+
+  /**
+   * Batch operations
+   */
+  async setMany(collection, entries) {
+    this.ensureConnected();
+    this.emit('setMany', { collection, count: entries.length });
+    
+    const manager = await this.getCollectionManager(collection);
+    await manager.setMany(entries);
+    
+    this.emit('save', { collection });
+  }
+
+  async getMany(collection, keys) {
+    this.ensureConnected();
+    const manager = await this.getCollectionManager(collection);
+    return manager.getMany(keys);
+  }
+
+  async deleteMany(collection, keys) {
+    this.ensureConnected();
+    this.emit('deleteMany', { collection, count: keys.length });
+    
+    const manager = await this.getCollectionManager(collection);
+    await manager.deleteMany(keys);
+    
+    this.emit('save', { collection });
+  }
+
+  async updateMany(collection, updates) {
+    this.ensureConnected();
+    this.emit('updateMany', { collection, count: updates.length });
+    
+    const manager = await this.getCollectionManager(collection);
+    await manager.updateMany(updates);
+    
+    this.emit('save', { collection });
+  }
+
+  /**
+   * Create a transaction
+   */
+  async transaction() {
+    this.ensureConnected();
+    return new Transaction(this);
+  }
+
+  /**
+   * Get collection manager with repository routing
+   */
+  async getCollectionManager(collection) {
+    // Check if collection exists in any repository
+    const repoName = await this.router.getRepositoryForCollection(collection);
+    const filePath = `shadowx/${this.options.projectId}/${collection}.json`;
+    
+    // Create a GitHub manager instance for the specific repository
+    const repoGithub = new GitHubManager({
+      token: this.options.token,
+      owner: this.options.owner,
+      repo: repoName,
+      branch: this.options.branch,
+      projectId: this.options.projectId,
+      encryption: this.github.encryption,
+      compression: this.options.compression,
+      verbose: this.options.verbose
+    });
+
+    const manager = new CollectionManager(repoGithub, collection);
+    
+    // Load data
+    await manager.load();
+    
+    // Register collection if not already
+    await this.router.registerCollectionInRepo(collection, repoName);
+    
+    return manager;
+  }
+
+  /**
+   * List all collections across repositories
+   */
+  async listCollections() {
+    this.ensureConnected();
+    return this.router.listAllCollections();
+  }
+
+  /**
+   * Get database info
+   */
+  async getInfo() {
+    const repoStats = await this.repositoryManager.getRepositoryStats();
+    
+    return {
+      connected: this.connected,
+      ready: this.ready,
+      projectId: this.options.projectId,
+      owner: this.options.owner,
+      baseRepo: this.options.repo,
+      branch: this.options.branch,
+      compression: this.options.compression,
+      encryption: !!this.options.encryptionKey,
+      autoSync: this.options.autoSync,
+      syncInterval: this.options.syncInterval,
+      scalingEnabled: this.options.scalingEnabled,
+      maxRepoSize: this.options.maxRepoSize,
+      cacheStats: this.cache.getStats(),
+      syncStatus: this.sync.getStatus(),
+      repositoryStats: repoStats
+    };
+  }
+
+  /**
+   * Force sync
+   */
+  async sync() {
+    this.ensureConnected();
+    await this.sync.forceSync();
+  }
+
+  /**
+   * Get collection stats
+   */
+  async getCollectionStats(collection) {
+    this.ensureConnected();
+    return this.router.getCollectionStats(collection);
+  }
+
+  /**
+   * Ensure database is connected
+   */
+  ensureConnected() {
+    if (!this.connected || !this.ready) {
+      throw new ShadowXError('Database not connected', ErrorCodes.NETWORK_ERROR, 503);
+    }
+  }
+
+  /**
+   * Log message
+   */
+  log(...args) {
+    if (this.options.verbose) {
+      console.log('[ShadowX]', ...args);
+    }
+  }
+}
+
+module.exports = Database;
