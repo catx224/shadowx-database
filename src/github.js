@@ -1,11 +1,11 @@
 /**
  * GitHub API wrapper for ShadowX Database
- * Updated to support multiple repositories
  */
 
 const { Octokit } = require('@octokit/rest');
 const Utils = require('./utils');
-const { ShadowXError, ErrorCodes } = require('./errors');
+const Compression = require('./compression');
+const { ShadowXError, ErrorCodes, RateLimitError, ConflictError } = require('./errors');
 
 class GitHubManager {
   constructor(options) {
@@ -73,7 +73,7 @@ class GitHubManager {
       let content = Buffer.from(response.data.content, 'base64').toString('utf8');
 
       if (this.compression) {
-        content = await this.decompress(content);
+        content = await Compression.decompress(content);
       }
 
       if (this.encryption) {
@@ -105,7 +105,7 @@ class GitHubManager {
     }
 
     if (this.compression) {
-      content = await this.compress(content);
+      content = await Compression.compress(content);
     }
 
     const encodedContent = Buffer.from(content, 'utf8').toString('base64');
@@ -198,47 +198,41 @@ class GitHubManager {
   }
 
   /**
+   * Create a new private repository
+   */
+  async createRepository(repoName) {
+    try {
+      this.log(`Creating private repository: ${repoName}`);
+      
+      const response = await this.octokit.repos.createForAuthenticatedUser({
+        name: repoName,
+        description: `ShadowX Database storage for project ${this.projectId}`,
+        private: true,
+        auto_init: false,
+        has_issues: false,
+        has_projects: false,
+        has_wiki: false
+      });
+
+      this.log(`Repository ${repoName} created successfully (private)`);
+      return response.data;
+    } catch (error) {
+      if (error.status === 422) {
+        throw new ShadowXError(
+          `Repository ${repoName} already exists or name is invalid`,
+          ErrorCodes.REPOSITORY_CREATION_FAILED,
+          422
+        );
+      }
+      this.handleGitHubError(error);
+    }
+  }
+
+  /**
    * Merge data for conflict resolution
    */
   mergeData(localData, remoteData) {
     return Utils.deepMerge(localData, remoteData);
-  }
-
-  /**
-   * Compress data
-   */
-  async compress(data) {
-    if (!this.compression) return data;
-
-    const zlib = require('zlib');
-    return new Promise((resolve, reject) => {
-      zlib.gzip(data, (error, compressed) => {
-        if (error) {
-          reject(new ShadowXError('Compression failed', ErrorCodes.COMPRESSION_ERROR, 500));
-        } else {
-          resolve(compressed.toString('base64'));
-        }
-      });
-    });
-  }
-
-  /**
-   * Decompress data
-   */
-  async decompress(data) {
-    if (!this.compression) return data;
-
-    const zlib = require('zlib');
-    return new Promise((resolve, reject) => {
-      const buffer = Buffer.from(data, 'base64');
-      zlib.gunzip(buffer, (error, decompressed) => {
-        if (error) {
-          reject(new ShadowXError('Decompression failed', ErrorCodes.COMPRESSION_ERROR, 500));
-        } else {
-          resolve(decompressed.toString('utf8'));
-        }
-      });
-    });
   }
 
   /**
@@ -250,22 +244,62 @@ class GitHubManager {
     if (error.status) {
       switch (error.status) {
         case 401:
-          throw new ShadowXError('Invalid GitHub token', ErrorCodes.INVALID_TOKEN, 401);
+          throw new ShadowXError(
+            'Invalid GitHub token or authentication failed',
+            ErrorCodes.INVALID_TOKEN,
+            401
+          );
         case 403:
           if (error.message.includes('rate limit')) {
-            throw new ShadowXError('Rate limit exceeded', ErrorCodes.RATE_LIMIT_EXCEEDED, 429);
+            throw new RateLimitError('GitHub API rate limit exceeded');
           }
-          throw new ShadowXError('Permission denied', ErrorCodes.PERMISSION_DENIED, 403);
+          throw new ShadowXError(
+            'Permission denied or access forbidden',
+            ErrorCodes.PERMISSION_DENIED,
+            403
+          );
         case 404:
-          throw new ShadowXError('Resource not found', ErrorCodes.REPOSITORY_NOT_FOUND, 404);
+          throw new ShadowXError(
+            'Resource not found',
+            ErrorCodes.REPOSITORY_NOT_FOUND,
+            404
+          );
         case 409:
-          throw new ShadowXError('Merge conflict detected', ErrorCodes.CONFLICT, 409);
+          throw new ConflictError('Merge conflict detected');
+        case 422:
+          throw new ShadowXError(
+            `Invalid request: ${error.message}`,
+            ErrorCodes.REPOSITORY_CREATION_FAILED,
+            422
+          );
+        case 429:
+          const resetTime = error.headers ? error.headers['x-ratelimit-reset'] : null;
+          throw new RateLimitError(
+            'GitHub API rate limit exceeded',
+            { resetTime }
+          );
         default:
-          throw new ShadowXError(`GitHub API error: ${error.message}`, ErrorCodes.GITHUB_ERROR, error.status);
+          throw new ShadowXError(
+            `GitHub API error: ${error.message}`,
+            ErrorCodes.GITHUB_ERROR,
+            error.status
+          );
       }
     }
 
-    throw new ShadowXError(`Unexpected error: ${error.message}`, ErrorCodes.GITHUB_ERROR, 500);
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      throw new ShadowXError(
+        'Network error: Unable to reach GitHub API',
+        ErrorCodes.NETWORK_ERROR,
+        503
+      );
+    }
+
+    throw new ShadowXError(
+      `Unexpected error: ${error.message}`,
+      ErrorCodes.GITHUB_ERROR,
+      500
+    );
   }
 
   /**
