@@ -1,6 +1,5 @@
 /**
  * Main Database class for ShadowX Database
- * Updated with repository scaling support
  */
 
 const { EventEmitter } = require('events');
@@ -59,6 +58,18 @@ class Database extends EventEmitter {
       encryption = new Encryption(this.options.encryptionKey);
     }
 
+    // Initialize GitHub manager
+    this.github = new GitHubManager({
+      token: this.options.token,
+      owner: this.options.owner,
+      repo: this.options.repo,
+      branch: this.options.branch,
+      projectId: this.options.projectId,
+      encryption: encryption,
+      compression: this.options.compression,
+      verbose: this.options.verbose
+    });
+
     // Initialize repository manager
     this.repositoryManager = new RepositoryManager({
       token: this.options.token,
@@ -69,21 +80,10 @@ class Database extends EventEmitter {
       verbose: this.options.verbose,
       scalingEnabled: this.options.scalingEnabled,
       maxRepoSize: this.options.maxRepoSize,
-      repoPrefix: this.options.repoPrefix
+      repoPrefix: this.options.repoPrefix,
+      github: this.github
     });
-
-    // Initialize GitHub manager
-    this.github = new GitHubManager({
-      token: this.options.token,
-      owner: this.options.owner,
-      repo: this.options.repo,
-      branch: this.options.branch,
-      projectId: this.options.projectId,
-      encryption: encryption,
-      compression: this.options.compression,
-      verbose: this.options.verbose,
-      repositoryManager: this.repositoryManager
-    });
+    this.repositoryManager.setEventEmitter(this);
 
     // Initialize repository router
     this.router = new RepositoryRouter(this.repositoryManager, this.github);
@@ -135,7 +135,6 @@ class Database extends EventEmitter {
       
       this.log('Connected to GitHub successfully');
       
-      // Log repository stats
       const stats = await this.repositoryManager.getRepositoryStats();
       this.log(`Repository stats: ${stats.total} total, ${stats.active.length} active`);
       
@@ -443,11 +442,9 @@ class Database extends EventEmitter {
    * Get collection manager with repository routing
    */
   async getCollectionManager(collection) {
-    // Check if collection exists in any repository
     const repoName = await this.router.getRepositoryForCollection(collection);
     const filePath = `shadowx/${this.options.projectId}/${collection}.json`;
     
-    // Create a GitHub manager instance for the specific repository
     const repoGithub = new GitHubManager({
       token: this.options.token,
       owner: this.options.owner,
@@ -461,10 +458,7 @@ class Database extends EventEmitter {
 
     const manager = new CollectionManager(repoGithub, collection);
     
-    // Load data
     await manager.load();
-    
-    // Register collection if not already
     await this.router.registerCollectionInRepo(collection, repoName);
     
     return manager;
