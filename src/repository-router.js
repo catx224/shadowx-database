@@ -28,7 +28,6 @@ class RepositoryRouter {
   async updateCollection(collection, data) {
     const repoName = await this.getRepositoryForCollection(collection);
     
-    // Check if repo needs scaling
     const needsScaling = await this.repoManager.needsScaling(repoName);
     if (needsScaling) {
       const newRepo = await this.repoManager.createNewRepository();
@@ -39,7 +38,6 @@ class RepositoryRouter {
     const filePath = `shadowx/${this.repoManager.projectId}/${collection}.json`;
     const result = await this.github.writeFileToRepo(collection, data, repoName, filePath);
     
-    // Register collection if not already
     await this.registerCollectionInRepo(collection, repoName);
     
     return result;
@@ -49,21 +47,17 @@ class RepositoryRouter {
    * Get repository for collection
    */
   async getRepositoryForCollection(collection) {
-    // Check cache first
     if (this.collectionCache.has(collection)) {
       const repoName = this.collectionCache.get(collection);
       const repo = this.repoManager.getRepositoryByName(repoName);
       if (repo && repo.exists !== false) {
         return repoName;
       }
-      // Repository no longer exists, clear cache
       this.collectionCache.delete(collection);
     }
 
-    // Check all repositories
     for (const repo of this.repoManager.getAllRepositories()) {
       if (repo.collections && repo.collections[collection]) {
-        // Verify collection exists
         const exists = await this.collectionExistsInRepo(collection, repo.name);
         if (exists) {
           this.collectionCache.set(collection, repo.name);
@@ -72,7 +66,6 @@ class RepositoryRouter {
       }
     }
 
-    // Collection not found, use active repository
     const activeRepo = this.repoManager.getActiveRepository();
     this.collectionCache.set(collection, activeRepo.name);
     return activeRepo.name;
@@ -153,10 +146,15 @@ class RepositoryRouter {
           stats.push({
             repository: repo.name,
             size: JSON.stringify(data).length,
-            keys: Object.keys(data).length
+            keys: Object.keys(data).length,
+            private: repo.private !== false
           });
         } catch (error) {
-          // Skip if collection not accessible
+          stats.push({
+            repository: repo.name,
+            error: error.message,
+            private: repo.private !== false
+          });
         }
       }
     }
