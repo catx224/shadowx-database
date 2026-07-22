@@ -1,4 +1,4 @@
-sshadowx-database/
+shadowx-database/
 ├── src/
 │   ├── index.js              ✅ Entry point
 │   ├── database.js           ✅ Main database class with events
@@ -7,7 +7,7 @@ sshadowx-database/
 │   ├── cache.js              ✅ Memory cache manager
 │   ├── sync.js               ✅ Auto-sync manager
 │   ├── transaction.js        ✅ Transaction support
-│   ├── events.js             ✅ Event system
+│   ├── events.js             ✅ Event system (FIXED)
 │   ├── encryption.js         ✅ AES-256 encryption
 │   ├── compression.js        ✅ Gzip compression
 │   ├── repository-manager.js ✅ Repository scaling
@@ -20,7 +20,45 @@ sshadowx-database/
 │   └── repository-manager.test.js ✅ Repository tests
 ├── examples/
 │   └── example.js            ✅ Complete example
-├── package.json              ✅ Package configuration
+├── package.json              ✅ Updated with keywords
 ├── README.md                 ✅ Complete documentation
 ├── LICENSE                   ✅ MIT license
 └── .gitignore                ✅ Git ignore file
+✅ All Features Included
+✅ GitHub-backed NoSQL database
+
+✅ Automatic private repository scaling
+
+✅ All CRUD operations (set, get, delete, has)
+
+✅ Math operations (add, subtract)
+
+✅ Array operations (push, pull)
+
+✅ Query operations (find, filter, random)
+
+✅ Batch operations (setMany, getMany, deleteMany, updateMany)
+
+✅ Transactions with rollback
+
+✅ Nested paths with dot notation
+
+✅ AES-256 encryption
+
+✅ Gzip compression
+
+✅ Memory caching with TTL
+
+✅ Auto-sync every 30 seconds
+
+✅ Conflict resolution
+
+✅ Comprehensive event system
+
+✅ TypeScript support
+
+✅ Error handling with custom errors
+
+✅ Rate limit handling
+
+✅ Exponential backoff retries
