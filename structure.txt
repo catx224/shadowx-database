@@ -1,0 +1,26 @@
+shadowx-database/
+├── src/
+│   ├── index.js
+│   ├── database.js
+│   ├── github.js
+│   ├── collection.js
+│   ├── cache.js
+│   ├── sync.js
+│   ├── transaction.js
+│   ├── events.js
+│   ├── encryption.js
+│   ├── compression.js
+│   ├── repository-manager.js
+│   ├── repository-router.js
+│   ├── utils.js
+│   ├── errors.js
+│   └── types.d.ts
+├── tests/
+│   ├── database.test.js
+│   └── repository-manager.test.js
+├── examples/
+│   └── example.js
+├── package.json
+├── README.md
+├── LICENSE
+└── .gitignore
