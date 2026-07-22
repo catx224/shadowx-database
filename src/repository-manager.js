@@ -333,4 +333,88 @@ class RepositoryManager {
   async registerCollection(repoName, collection) {
     const repo = this.getRepositoryByName(repoName);
     if (!repo) {
-      throw new ShadowXError(`Repository ${repoName} not
+      throw new ShadowXError(`Repository ${repoName} not found`, ErrorCodes.REPOSITORY_NOT_FOUND, 404);
+    }
+
+    if (!repo.collections) {
+      repo.collections = {};
+    }
+
+    repo.collections[collection] = {
+      registeredAt: new Date().toISOString(),
+      path: `shadowx/${this.projectId}/${collection}.json`
+    };
+
+    await this.saveRepositoryIndex();
+    this.log(`Collection ${collection} registered in ${repoName}`);
+  }
+
+  /**
+   * Get all repositories
+   */
+  getAllRepositories() {
+    return this.repositories;
+  }
+
+  /**
+   * Get repository stats
+   */
+  async getRepositoryStats() {
+    const stats = {
+      total: this.repositories.length,
+      active: this.repositories.filter(r => r.status === 'active'),
+      full: this.repositories.filter(r => r.status === 'full'),
+      collections: {}
+    };
+
+    for (const repo of this.repositories) {
+      try {
+        const response = await this.github.octokit.repos.get({
+          owner: this.owner,
+          repo: repo.name
+        });
+        stats.collections[repo.name] = {
+          size: response.data.size,
+          collections: repo.collections ? Object.keys(repo.collections).length : 0,
+          private: repo.private !== false
+        };
+      } catch (error) {
+        stats.collections[repo.name] = {
+          size: 0,
+          collections: 0,
+          error: error.message,
+          private: repo.private !== false
+        };
+      }
+    }
+
+    return stats;
+  }
+
+  /**
+   * Set event emitter
+   */
+  setEventEmitter(emitter) {
+    this.eventEmitter = emitter;
+  }
+
+  /**
+   * Emit event
+   */
+  emit(event, data) {
+    if (this.eventEmitter) {
+      this.eventEmitter.emit(event, data);
+    }
+  }
+
+  /**
+   * Log message
+   */
+  log(message) {
+    if (this.verbose) {
+      console.log(`[RepositoryManager] ${message}`);
+    }
+  }
+}
+
+module.exports = RepositoryManager;
