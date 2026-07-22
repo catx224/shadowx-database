@@ -101,7 +101,7 @@ class EventManager extends EventEmitter {
     if (typeof arg === 'object' && arg !== null) {
       const sanitized = { ...arg };
       // Remove sensitive fields
-      const sensitiveFields = ['token', 'password', 'secret', 'key'];
+      const sensitiveFields = ['token', 'password', 'secret', 'key', 'encryptionKey'];
       for (const field of sensitiveFields) {
         if (sanitized[field]) {
           sanitized[field] = '***REDACTED***';
@@ -278,6 +278,37 @@ class EventManager extends EventEmitter {
     return () => {
       this.emit = originalEmit;
     };
+  }
+
+  /**
+   * Get event history as formatted string
+   */
+  getEventHistoryString(options = {}) {
+    const history = this.getEventHistory(options);
+    return history.map(entry => {
+      const args = entry.args.length > 0 ? ` ${entry.args.map(a => JSON.stringify(a)).join(', ')}` : '';
+      return `[${entry.timestamp}] ${entry.event}${args}`;
+    }).join('\n');
+  }
+
+  /**
+   * Check if event has listeners
+   */
+  hasListeners(event) {
+    return this.listeners.has(event) && this.listeners.get(event).length > 0;
+  }
+
+  /**
+   * Get all event names with listeners
+   */
+  getActiveEvents() {
+    const activeEvents = [];
+    for (const [event, listeners] of this.listeners) {
+      if (listeners.length > 0) {
+        activeEvents.push(event);
+      }
+    }
+    return activeEvents;
   }
 }
 
