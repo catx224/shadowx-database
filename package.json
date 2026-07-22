@@ -24,7 +24,32 @@
     "data",
     "shadowx",
     "shadowx-database",
-    "db"
+    "db",
+    "json-database",
+    "file-database",
+    "git-database",
+    "github-storage",
+    "cloud-storage",
+    "serverless-database",
+    "javascript-database",
+    "node-database",
+    "nodejs-database",
+    "key-value-store",
+    "key-value-database",
+    "document-store",
+    "document-database",
+    "json-store",
+    "git-backend",
+    "github-backend",
+    "auto-scaling",
+    "scalable-database",
+    "lightweight-database",
+    "simple-database",
+    "easy-database",
+    "mongodb-alternative",
+    "nosql-alternative",
+    "github-api",
+    "shadowx-database"
   ],
   "author": "Mueid Mursalin Rifat",
   "license": "MIT",
@@ -44,5 +69,17 @@
   },
   "peerDependencies": {
     "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mueidmursalinrifat/shadowx-database.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mueidmursalinrifat/shadowx-database/issues"
+  },
+  "homepage": "https://github.com/mueidmursalinrifat/shadowx-database#readme",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/mueidmursalinrifat"
   }
 }
